@@ -3,6 +3,7 @@ import datetime
 import database as db
 import admin
 import pdf_generator as pdf_gen
+import os
 
 fault_suggestions = [
     "Till crash",
@@ -615,4 +616,6 @@ document.addEventListener("DOMContentLoaded", function() {
 </script>
 ''', shared=True)
 
-ui.run(title='Unipos Digital Job Card', port=8080, reload=False)
+if __name__ in {"__main__", "__mp_main__"}:
+    port = int(os.environ.get("PORT", 8080))
+    ui.run(title='Unipos Digital Job Card', port=port, host='0.0.0.0', reload=False)
