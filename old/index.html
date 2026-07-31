@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unipos Retail Solutions - Digital Jobcard</title>
+    <!-- Link to our clean CSS stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="jobcard-container">
+    
+    <!-- BRANDING & GENERAL DATA -->
+    <div class="brand-header">
+        <div class="logo-area">
+            <h1>UNIPOS</h1>
+            <p><strong>RETAIL SOLUTIONS</strong></p>
+            <p>Head Office | P.O. Box 28405, Danhof 9310<br>info@unipos.co.za | Tel: 086 110 2320</p>
+        </div>
+        <div class="header-right">
+            <!-- Settings Gear Button -->
+            <button type="button" id="btnSettings" onclick="toggleSettingsDrawer()">⚙️ Settings</button>
+            <div class="job-number-box">
+                <label>Jobcard No:</label>
+                <h2 id="txtJobcardNo">Calculating...</h2>
+                <input type="date" id="jobDate" style="margin-top:5px;">
+            </div>
+        </div>
+    </div>
+
+    <!-- HIDDEN ADMIN & SETTINGS DRAWER -->
+    <div id="settingsDrawer" class="settings-drawer hidden">
+        <h3>App Controls & Admin</h3>
+        <hr>
+        <div class="setting-control">
+            <label>Interface Theme:</label>
+            <button type="button" id="btnThemeToggle" onclick="toggleDarkMode()">🌙 Switch to Dark Mode</button>
+        </div>
+        <hr>
+        <div class="action-buttons-grid">
+            <button type="button" class="btn-action print" onclick="triggerPrint()">🖨️ Print Document</button>
+            <button type="button" class="btn-action save" onclick="triggerSave()">💾 Save Device Backup</button>
+            <button type="button" class="btn-action send" onclick="triggerSend()">🚀 Send 3-Way Email</button>
+        </div>
+    </div>
+
+    <!-- FIELD METADATA MATRIX -->
+    <div class="meta-box">
+        <div>
+            <label>To (Client):</label>
+            <input type="text" id="clientName" list="clientList" placeholder="Start typing client...">
+            <datalist id="clientList">
+                <option value="Cat Box Pet Hyper Garsfontein">
+                <option value="Cat Box Pet Hyper Centurion">
+                <option value="Cat Box Pet Hyper Rayton">
+                <option value="Oasis Braamfontein">
+            </datalist>
+        </div>
+        <div><label>Called By:</label><input type="text" id="calledBy" placeholder="Person who logged call"></div>
+        <div>
+            <label>Technician 1:</label>
+            <select id="tech1" onchange="generateDynamicJobcardId()">
+                <option value="William">William</option>
+                <option value="C.J. Celliers" selected>C.J. Celliers</option>
+                <option value="Mark">Mr. Mark</option>
+            </select>
+        </div>
+        <div>
+            <label>Reg No (Vehicle):</label>
+            <select id="regNo">
+                <option value="HLB897FS">HLB897FS</option>
+                <option value="BFN999FS">BFN999FS</option>
+            </select>
+        </div>
+        <div><label>CRM No:</label><input type="text" id="crmNo" placeholder="e.g. CRM ID"></div>
+        <div><label>S/O No / Account No:</label><input type="text" id="accountNo" placeholder="e.g. Account Ref"></div>
+    </div>
+
+    <!-- FAULT DETAILS DATALIST -->
+    <div style="margin-bottom: 12px;">
+        <label>Details of Fault:</label>
+        <input type="text" id="faultDetails" list="faultSuggestions" placeholder="Select or type custom fault...">
+        <datalist id="faultSuggestions">
+            <option value="Till crash">
+            <option value="Slip Printer Offline">
+            <option value="Network Database Offline">
+            <option value="Scanner not reading barcode labels">
+        </datalist>
+    </div>
+
+    <!-- ACTIONS TAKEN DROPDOWN INJECTOR -->
+    <div style="margin-bottom: 12px;">
+        <label>Action Taken by Technician:</label>
+        <select id="actionSelect" onchange="applyQuickAction()" style="margin-bottom: 5px;">
+            <option value="">-- Choose Work Step to Add --</option>
+            <option value="Removed old PC terminal from service area.">Removed old PC</option>
+            <option value="Changed local IP address allocation rules.">Changed local IP allocation</option>
+            <option value="Setup Unipos back-office retail environment.">Setup Unipos environment</option>
+            <option value="Configured backup parameters and tested database sync.">Configured DB backup</option>
+            <option value="Tested system end-to-end. Working perfectly.">Tested system / complete</option>
+        </select>
+        <textarea id="actionsTaken" rows="4" placeholder="Your work history timeline logs here..."></textarea>
+    </div>
+
+    <!-- INVENTORY SPREADSHEET MATRIX -->
+    <div class="table-responsive">
+        <label>Stock / Spares / Line Items:</label>
+        <table id="stockTable">
+            <thead>
+                <tr>
+                    <th style="width: 40%;">Description / Item Name Search</th>
+                    <th style="width: 20%;">Serial Number (S/N)</th>
+                    <th style="width: 10%;">Qty</th>
+                    <th style="width: 13%;">Price (Ex)</th>
+                    <th style="width: 12%;">Total (Ex)</th>
+                    <th style="width: 5%;"></th>
+                </tr>
+            </thead>
+            <tbody id="stockTableBody">
+                <!-- Rows injected dynamically via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+    <button type="button" class="btn-add-row" onclick="addNewStockRow()">➕ Add Stock Item</button>
+
+    <!-- BOTTOM SPLIT LAYOUT -->
+    <div class="bottom-split">
+        
+        <!-- Left Side: Logs & Control Toggles -->
+        <div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                <div><label>Time Started:</label><input type="time" id="timeStarted" value="08:30"></div>
+                <div><label>Time Completed:</label><input type="time" id="timeCompleted" value="09:30"></div>
+            </div>
+
+            <label>Customer Comments:</label>
+            <textarea id="customerComments" rows="2" placeholder="Feedback from client site..."></textarea>
+
+            <div style="margin-top: 10px;">
+                <label>Job Successfully Completed?</label>
+                <div class="toggle-buttons">
+                    <button type="button" id="btnYes" onclick="setCompletionStatus(true)">YES</button>
+                    <button type="button" id="btnNo" onclick="setCompletionStatus(false)">NO</button>
+                </div>
+            </div>
+
+            <div id="incompleteBox" class="hidden" style="margin-top:10px; border-left: 3px solid #dc3545; padding-left: 8px;">
+                <label style="color:#dc3545;">Reason Outstanding *</label>
+                <input type="text" id="incompleteReason">
+                <label style="color:#dc3545;">Technician Signature *</label>
+                <div class="canvas-container">
+                    <canvas id="techCanvas"></canvas>
+                    <button type="button" class="btn-clear" onclick="clearCanvas('techCanvas')">Clear</button>
+                </div>
+            </div>
+
+            <div style="margin-top: 10px;">
+                <label>Authorized Client Signature:</label>
+                <div class="canvas-container">
+                    <canvas id="clientCanvas"></canvas>
+                    <button type="button" class="btn-clear" onclick="clearCanvas('clientCanvas')">Clear</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Math Calculations Box -->
+        <div class="calculations-panel">
+            <label>Calculations:</label>
+            <table style="width: 100%;">
+                <tr>
+                    <td style="font-size:11px;">Call-Out Fee:</td>
+                    <td>
+                        <select id="calloutType" onchange="handleCalloutLogic()">
+                            <option value="450">R450 Base Standard</option>
+                            <option value="650">R650 Fixed Rate</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>KM Travelled:</td>
+                    <td><input type="number" id="kmDriven" value="160" oninput="calculateFinancials()"></td>
+                </tr>
+                <tr>
+                    <td style="font-size:11px; color:#0056b3;" class="calc-label-highlight">Billable Hours:</td>
+                    <td><input type="number" id="billableHrs" value="1" oninput="calculateFinancials()"></td>
+                </tr>
+                <tr>
+                    <td style="font-size:11px; color:#0056b3;" class="calc-label-highlight">Hourly Rate (R):</td>
+                    <td><input type="number" id="hourlyRate" value="650" oninput="calculateFinancials()"></td>
+                </tr>
+                <tr style="background:#f0f0f0; font-weight:bold;" class="calc-subtotal-row">
+                    <td>Sub Total (Ex):</td>
+                    <td>R<span id="txtSubTotal">0.00</span></td>
+                </tr>
+                <tr>
+                    <td>15% VAT Value:</td>
+                    <td>R<span id="txtVat">0.00</span></td>
+                </tr>
+                <tr style="background:#333; color:white; font-weight:bold;" class="calc-total-row">
+                    <td>Total Due (Inc):</td>
+                    <td>R<span id="txtGrandTotal">0.00</span></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- METHOD OF SETTLEMENT -->
+    <div class="payment-box">
+        <label>Method of Settlement / Payment Acknowledgement Note:</label>
+        <select id="paymentMethod">
+            <option value="Account">On Account / Cash-Box Corporate Invoicing Profile</option>
+            <option value="EFT">EFT / Instant Electronic Funds Verification Settlement</option>
+            <option value="Cash">Cash Handover Verification</option>
+            <option value="Card">Debit / Credit Merchant Terminal Sweep</option>
+        </select>
+    </div>
+
+</div>
+
+<!-- Link to our backend script logic -->
+<script src="app.js"></script>
+</body>
+</html>
