@@ -23,10 +23,10 @@ quick_actions = {
     "Tested / Complete": "Tested system end-to-end. Working perfectly."
 }
 
-callout_fee = 0.0
+callout_fee = 450.0
 km_driven = 0.0
 rate_per_km = 7.50
-billable_hrs = 0.0
+billable_hrs = 1.0
 hourly_rate = 650.0
 
 active_draft = {}
@@ -88,33 +88,6 @@ def main_jobcard_page():
         lbl_grand_total.set_text(f"R{grand_total:.2f}")
         return subtotal, vat, grand_total
 
-    def reset_form_fields():
-        global callout_fee, km_driven, billable_hrs
-        callout_fee = 0.0
-        km_driven = 0.0
-        billable_hrs = 0.0
-        
-        client_select.value = None
-        called_by_select.value = ''
-        client_email_input.value = ''
-        vehicle_select.value = 'None'
-        fault_select.value = ''
-        actions_taken.value = ''
-        cust_comments.value = ''
-        t_start.value = '00:00'
-        t_end.value = '00:00'
-        
-        stock_container.clear()
-        stock_rows.clear()
-        create_stock_row_ui(inventory_db, stock_container, stock_rows, update_financials)
-        
-        num_billable_hrs.value = 0.0
-        num_km_driven.value = 0.0
-        callout_select.value = None
-        
-        set_completion_status(True, incomplete_box, tech_signature_box)
-        update_financials()
-
     def on_client_select(e):
         selected_client = e.value
         if selected_client in clients_db:
@@ -159,7 +132,15 @@ def main_jobcard_page():
             new_text = quick_actions[e.value]
             actions_taken.set_value(f"{current_text}\n• {new_text}".strip())
 
-    async def save_jobcard_to_history(action_type="Saved"):
+    def set_completion_status(completed: bool):
+        if completed:
+            incomplete_box.set_visibility(False)
+            ui.notify('Marked Completed', type='positive')
+        else:
+            incomplete_box.set_visibility(True)
+            ui.notify('Marked Incomplete - Reason & Tech Signature Required', type='warning')
+
+    def save_jobcard_to_history(action_type="Saved"):
         global rate_per_km
         subtotal, vat, grand_total = update_financials()
         
@@ -182,13 +163,9 @@ def main_jobcard_page():
 
         current_store = client_select.value
         new_store_email = client_email_input.value.strip()
-        if current_store in clients_db and new_store_email and new_store_email != clients_db[current_store]["email"]:
-            db.update_store_email_list(current_store, [new_store_email])
+        if current_store in clients_db and new_store_email != clients_db[current_store]["email"]:
+            db.update_store_email(current_store, new_store_email)
             ui.notify(f'Updated permanent dispatch email for store {current_store}!', type='info')
-
-        # Extract Canvas Signatures as Base64 strings from browser DOM
-        client_sig_b64 = await ui.run_javascript('document.getElementById("clientCanvas") ? document.getElementById("clientCanvas").toDataURL() : ""')
-        tech_sig_b64 = await ui.run_javascript('document.getElementById("techCanvas") ? document.getElementById("techCanvas").toDataURL() : ""')
 
         record = {
             "jc_no": input_jobcard_no.value or "JC-0000",
@@ -200,7 +177,6 @@ def main_jobcard_page():
             "fault": fault_select.value or "",
             "actions": full_actions_log,
             "items": items_summary,
-            "stock_items": items_summary,
             "km_driven": km_driven,
             "rate_per_km": rate_per_km,
             "billable_hrs": billable_hrs,
@@ -210,13 +186,9 @@ def main_jobcard_page():
             "time_end": t_end.value or "",
             "customer_comments": cust_comments.value or "",
             "payment_method": pay_method.value or "",
-            "is_completed": not incomplete_box.visible,
-            "incomplete_reason": incomplete_reason_input.value if incomplete_box.visible else "",
             "subtotal": subtotal,
             "vat": vat,
-            "total": grand_total,
-            "client_signature": client_sig_b64 or "",
-            "tech_signature": tech_sig_b64 or ""
+            "total": grand_total
         }
         
         db.save_job_card(record)
@@ -232,12 +204,10 @@ def main_jobcard_page():
 
         rate_per_km = 7.50
         num_rate_km.value = 7.50
-        
-        reset_form_fields()
         return record
 
-    async def export_and_download_pdf():
-        record = await save_jobcard_to_history("PDF Exported")
+    def export_and_download_pdf():
+        record = save_jobcard_to_history("PDF Exported")
         filename = f"{record['jc_no']}.pdf"
         pdf_gen.generate_jobcard_pdf(record, filename)
         ui.download(filename)
@@ -256,7 +226,6 @@ def main_jobcard_page():
             "saved_at": datetime.datetime.now().strftime('%H:%M:%S')
         }
         ui.notify(f'Draft saved at {active_draft["saved_at"]}', type='info')
-        reset_form_fields()
 
     def open_draft_dialog():
         if not active_draft:
@@ -377,7 +346,7 @@ def main_jobcard_page():
                 sn_container = ui.column().classes('w-2/12 gap-1')
                 sn_inputs = []
 
-                qty = ui.number(value=qty_val).classes('w-1/12').props('dense outlined')
+                qty = ui.number(value=qty_val).classes('w-1/12').props('dense outlined min=1')
                 price = ui.number(value=price_val).classes('w-2/12').props('outlined dense')
                 
                 total_lbl = ui.label('R0.00').classes('w-2/12 text-right font-bold text-xs text-blue-900 mt-2')
@@ -435,16 +404,6 @@ def main_jobcard_page():
                     update_financials()
 
                 ui.button('❌', on_click=remove_row).props('flat color=negative dense').classes('no-print mt-1')
-
-    def set_completion_status(completed: bool):
-        if completed:
-            incomplete_box.set_visibility(False)
-            tech_signature_box.set_visibility(False)
-            ui.notify('Marked Completed', type='positive')
-        else:
-            incomplete_box.set_visibility(True)
-            tech_signature_box.set_visibility(True)
-            ui.notify('Marked Incomplete - Reason & Tech Signature Required', type='warning')
 
     ui.colors(primary='#0056b3')
 
@@ -510,6 +469,7 @@ def main_jobcard_page():
 
         with ui.card().classes('w-full p-2 bg-gray-50 border gap-2 mb-2 shadow-none'):
             with ui.grid(columns=2).classes('w-full gap-2'):
+                # Row 1
                 client_select = ui.select(
                     list(clients_db.keys()), 
                     label='To (Client):', 
@@ -525,9 +485,15 @@ def main_jobcard_page():
                     on_change=on_called_by_change
                 ).classes('w-full').props('outlined dense')
 
-                client_email_input = ui.input(label='Client Dispatch Email Address:', value='').classes('w-full').props('outlined dense bg-white')
+                # Row 2
+                initial_client_key = list(clients_db.keys())[0] if clients_db else ''
+                initial_email = clients_db.get(initial_client_key, {}).get('email', '') if initial_client_key else ''
+                client_email_input = ui.input(label='Client Dispatch Email Address:', value=initial_email).classes('w-full').props('outlined dense bg-white')
+                
+                # Blank placeholder space next to Client Email
                 ui.html('')
 
+                # Row 3
                 default_tech = app.storage.user.get('tech_name') if app.storage.user.get('tech_name') in technicians_db else list(technicians_db.keys())[0]
                 tech_select = ui.select(
                     list(technicians_db.keys()), 
@@ -544,6 +510,7 @@ def main_jobcard_page():
                     label='Additional Technicians On Site:'
                 ).classes('w-full').props('outlined dense use-chips options-dense')
 
+                # Row 4
                 assigned_veh = technicians_db.get(app.storage.user.get('tech_name'), {}).get('assigned_vehicle')
                 default_veh_selection = assigned_veh if assigned_veh else 'None'
                 vehicle_select = ui.select(
@@ -556,7 +523,10 @@ def main_jobcard_page():
                 
                 ui.input(label='CRM No:', placeholder='CRM ID').classes('w-full').props('outlined dense')
 
+                # Row 5
                 ui.input(label='S/O No / Account No:', placeholder='Account Ref').classes('w-full').props('outlined dense')
+                
+                # Blank placeholder space next to Account No
                 ui.html('')
 
         with ui.column().classes('w-full gap-1 mb-2'):
@@ -594,35 +564,29 @@ def main_jobcard_page():
             
             ui.button('➕ Add Stock Item', on_click=create_stock_row_ui).props('dense').classes('bg-green-600 text-white font-bold text-[10px] mt-1 no-print')
 
-        # --- STACKED LAYOUT WITH EXPLICIT INITIAL VISIBILITY CONTROLS ---
-        with ui.grid(columns=2).classes('w-full gap-2 border-t pt-2 items-start'):
+        with ui.grid(columns=2).classes('w-full gap-2 border-t pt-2'):
             
-            # Left Column: Times, Comments, Success Status, Reason, and Signatures Stacked
-            with ui.column().classes('w-full gap-2'):
-                
-                # Side-by-side compact Time Started & Time Completed
+            with ui.column().classes('w-full gap-1'):
                 with ui.row().classes('w-full gap-1'):
                     with ui.column().classes('w-1/2 gap-0'):
                         ui.label('Time Started:').classes('text-[10px] font-bold text-gray-600')
                         with ui.input(value='00:00').props('outlined dense').classes('w-full') as t_start:
                             with ui.menu().props('no-parent-event') as start_menu:
-                                with ui.card().classes('p-1'):
-                                    with ui.time().bind_value(t_start):
-                                        with ui.row().classes('justify-end p-1 bg-white'):
-                                            ui.button('DONE', on_click=start_menu.close).props('color=primary dense flat text-xs')
+                                with ui.time().bind_value(t_start):
+                                    with ui.row().classes('justify-end p-2 bg-white'):
+                                        ui.button('DONE', on_click=start_menu.close).props('color=primary dense flat')
                             with t_start.add_slot('append'):
-                                ui.icon('access_time').on('click', start_menu.open).classes('cursor-pointer text-xs')
+                                ui.icon('access_time').on('click', start_menu.open).classes('cursor-pointer')
 
                     with ui.column().classes('w-1/2 gap-0'):
                         ui.label('Time Completed:').classes('text-[10px] font-bold text-gray-600')
                         with ui.input(value='00:00').props('outlined dense').classes('w-full') as t_end:
                             with ui.menu().props('no-parent-event') as end_menu:
-                                with ui.card().classes('p-1'):
-                                    with ui.time().bind_value(t_end):
-                                        with ui.row().classes('justify-end p-1 bg-white'):
-                                            ui.button('DONE', on_click=end_menu.close).props('color=primary dense flat text-xs')
+                                with ui.time().bind_value(t_end):
+                                    with ui.row().classes('justify-end p-2 bg-white'):
+                                        ui.button('DONE', on_click=end_menu.close).props('color=primary dense flat')
                             with t_end.add_slot('append'):
-                                ui.icon('access_time').on('click', end_menu.open).classes('cursor-pointer text-xs')
+                                ui.icon('access_time').on('click', end_menu.open).classes('cursor-pointer')
 
                 cust_comments = ui.textarea(label='Customer Comments:', placeholder='Feedback from client site...').classes('w-full').props('outlined rows=2')
                 
@@ -631,30 +595,22 @@ def main_jobcard_page():
                     ui.button('YES', on_click=lambda: set_completion_status(True)).props('color=positive dense').classes('text-[10px]')
                     ui.button('NO', on_click=lambda: set_completion_status(False)).props('color=negative dense').classes('text-[10px]')
 
-                # Reason box initialized hidden by default
-                incomplete_box = ui.card().classes('w-full p-2 bg-red-50 border border-red-200 gap-1 shadow-none')
-                with incomplete_box:
+                with ui.card().classes('w-full p-2 bg-red-50 border border-red-200 gap-1 my-1 shadow-none') as incomplete_box:
                     ui.label('Reason Outstanding *').classes('font-bold text-[10px] text-red-700')
-                    incomplete_reason_input = ui.input(placeholder='e.g. Waiting for replacement part...').classes('w-full').props('outlined dense bg-white')
-                incomplete_box.set_visibility(False)
-
-                # Technician Signature box initialized hidden by default
-                tech_signature_box = ui.column().classes('w-full gap-1')
-                with tech_signature_box:
-                    ui.label('Technician Signature * (Click to Expand)').classes('font-bold text-[10px] text-red-700')
+                    ui.input(placeholder='e.g. Waiting for replacement part...').classes('w-full').props('outlined dense bg-white')
+                    
+                    ui.label('Technician Signature * (Click to Expand)').classes('font-bold text-[10px] text-red-700 mt-1')
                     with ui.card().classes('w-full p-1 border border-dashed bg-white items-center justify-center shadow-none cursor-pointer').on('click', lambda: open_fullscreen_signature_modal('techCanvas', 'Technician Signature')):
                         ui.html('<canvas id="techCanvas" width="220" height="50" style="border:1px solid #ccc; background:#fff; pointer-events:none;"></canvas>')
                         ui.label('🔍 Click anywhere to sign full screen').classes('text-[9px] text-blue-700 font-bold no-print')
-                tech_signature_box.set_visibility(False)
 
-                # Client Signature (Always visible)
-                with ui.column().classes('w-full gap-1'):
-                    ui.label('Client Signature * (Click to Expand)').classes('font-bold text-[10px] text-gray-700')
-                    with ui.card().classes('w-full p-1 border border-dashed bg-gray-50 items-center justify-center shadow-none cursor-pointer').on('click', lambda: open_fullscreen_signature_modal('clientCanvas', 'Client Signature')):
-                        ui.html('<canvas id="clientCanvas" width="220" height="50" style="border:1px solid #ccc; background:#fff; pointer-events:none;"></canvas>')
-                        ui.label('🔍 Click anywhere to sign full screen').classes('text-[9px] text-blue-700 font-bold no-print')
+                incomplete_box.set_visibility(False)
 
-            # Right Column: Calculations Summary
+                ui.label('Authorized Client Signature * (Click to Expand)').classes('font-bold text-[10px] text-gray-700 mt-1')
+                with ui.card().classes('w-full p-1 border border-dashed bg-gray-50 items-center justify-center shadow-none cursor-pointer').on('click', lambda: open_fullscreen_signature_modal('clientCanvas', 'Client Signature')):
+                    ui.html('<canvas id="clientCanvas" width="220" height="60" style="border:1px solid #ccc; background:#fff; pointer-events:none;"></canvas>')
+                    ui.label('🔍 Click anywhere to sign full screen').classes('text-[9px] text-blue-700 font-bold no-print')
+
             with ui.card().classes('w-full bg-gray-50 p-2 border gap-1 shadow-none'):
                 ui.label('Calculations Summary:').classes('font-bold text-xs text-gray-800 border-b pb-1 w-full')
                 
@@ -663,7 +619,7 @@ def main_jobcard_page():
                         global billable_hrs
                         billable_hrs = float(e.value or 0)
                         update_financials()
-                    num_billable_hrs = ui.number(label='Billable Hrs:', value=0.0, on_change=set_hrs).classes('w-full').props('outlined dense')
+                    ui.number(label='Billable Hrs:', value=1.0, on_change=set_hrs).classes('w-full').props('outlined dense')
 
                     def set_rate(e):
                         global hourly_rate
@@ -676,7 +632,7 @@ def main_jobcard_page():
                         global km_driven
                         km_driven = float(e.value or 0)
                         update_financials()
-                    num_km_driven = ui.number(label='KM Travelled:', value=0.0, on_change=set_km).classes('w-full').props('outlined dense')
+                    ui.number(label='KM Travelled:', value=0.0, on_change=set_km).classes('w-full').props('outlined dense')
 
                     def set_rate_km(e):
                         global rate_per_km
@@ -686,16 +642,10 @@ def main_jobcard_page():
 
                 def set_callout(e):
                     global callout_fee
-                    val = e.value
-                    callout_fee = float(val) if val is not None else 0.0
+                    callout_fee = float(e.value)
                     update_financials()
 
-                callout_select = ui.select(
-                    {None: 'Select Call-Out Fee', '450': 'R450 Base Call-Out', '650': 'R650 Fixed Call-Out'}, 
-                    value=None, 
-                    label='Call-Out Fee Option:', 
-                    on_change=set_callout
-                ).classes('w-full').props('outlined dense')
+                ui.select({'450': 'R450 Base Call-Out', '650': 'R650 Fixed Call-Out'}, value='450', label='Call-Out Fee Option:', on_change=set_callout).classes('w-full').props('outlined dense')
                 
                 ui.separator()
                 
@@ -714,8 +664,8 @@ def main_jobcard_page():
         with ui.card().classes('w-full p-2 bg-blue-50 border border-blue-200 mt-2 shadow-none'):
             ui.label('Method of Settlement / Payment Note:').classes('font-bold text-[10px] text-blue-900')
             pay_method = ui.select(
-                ['Account', 'EFT', 'Cash'],
-                value='Account',
+                ['Account', 'EFT', 'Cash',],
+                value='On Account / Cash-Box Corporate Invoicing',
             ).classes('w-full').props('outlined dense bg-white')
 
         update_financials()
@@ -725,12 +675,14 @@ ui.add_head_html('''
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 .fa-spinner { animation: spin 1.5s linear infinite; }
 
+/* --- Sleek UI Polish & Smooth Corners (Inspired by modern G2/squircle design) --- */
 .jobcard-a4-sheet {
     border-radius: 16px !important;
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.08) !important;
     border: 1px solid #e2e8f0 !important;
 }
 
+/* Smooth out cards, buttons, and inputs globally */
 .q-card {
     border-radius: 12px !important;
 }
@@ -805,4 +757,4 @@ document.addEventListener("DOMContentLoaded", function() {
 
 if __name__ in {"__main__", "__mp_main__"}:
     port = int(os.environ.get("PORT", 8080))
-    ui.run(title='Unipos Digital Job Card', port=port, host='127.0.0.1', reload=False, storage_secret='unipos_secure_secret_key_2026')
+    ui.run(title='Unipos Digital Job Card', port=port, host='0.0.0.0', reload=False, storage_secret='unipos_secure_secret_key_2026')
